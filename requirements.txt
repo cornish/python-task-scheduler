@@ -1,0 +1,13 @@
+# Python Scheduler Service Dependencies
+
+# YAML parsing
+PyYAML>=6.0.1
+
+# Job scheduling library
+schedule>=1.2.0
+
+# Configuration validation
+cerberus>=1.3.5
+
+# Process monitoring (for watchdog)
+psutil>=5.9.0
