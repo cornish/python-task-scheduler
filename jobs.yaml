@@ -1,6 +1,6 @@
 jobs:
 - name: quick_check
-  command: python \\mcwcorp\Departments\Pathology\Users\tcornish\automation\scheduler\scripts\heartbeat.py
+  command: python scripts/heartbeat.py
   enabled: true
   schedule:
     unit: seconds
