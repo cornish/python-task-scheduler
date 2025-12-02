@@ -134,6 +134,9 @@ def run_command(command, job_name="unknown", timeout=None):
     """
     Execute a job command.
     
+    Handles both relative and absolute paths (including UNC paths).
+    For UNC paths, uses pushd/popd to work around CMD.EXE limitations.
+    
     Args:
         command: Command string to run (can include arguments)
         job_name: Name for logging
@@ -153,6 +156,24 @@ def run_command(command, job_name="unknown", timeout=None):
     }
     
     try:
+        # Prepare the command - if BASE_DIR is a UNC path, wrap command with pushd/popd
+        # This allows CMD to temporarily map the UNC path and work around the limitation
+        final_command = command
+        working_dir = str(BASE_DIR)  # Default: use BASE_DIR as working directory
+        
+        if sys.platform == 'win32':
+            base_dir_str = str(BASE_DIR)
+            # Check if BASE_DIR is a UNC path and command appears to use relative paths
+            if base_dir_str.startswith('\\\\'):
+                # For UNC paths, use pushd/popd which temporarily maps to a drive letter
+                # This works for both relative paths in the command and allows cwd context
+                final_command = f'pushd "{base_dir_str}" && {command} & popd'
+                working_dir = None  # pushd handles the directory, don't set cwd
+            else:
+                # For regular Windows paths, we can safely use cwd parameter
+                working_dir = base_dir_str
+        # For Linux/Mac, working_dir is already set to BASE_DIR above
+        
         # Windows-specific: hide console window
         startupinfo = None
         creationflags = 0
@@ -163,12 +184,13 @@ def run_command(command, job_name="unknown", timeout=None):
             creationflags = subprocess.CREATE_NO_WINDOW
         
         proc_result = subprocess.run(
-            command,
+            final_command,
             shell=True,
             check=True,
             capture_output=True,
             text=True,
             timeout=timeout,
+            cwd=working_dir,
             startupinfo=startupinfo,
             creationflags=creationflags
         )

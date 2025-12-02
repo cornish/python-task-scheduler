@@ -1,32 +1,28 @@
 jobs:
 - name: quick_check
-  command: python scripts/heartbeat.py
+  command: python \\mcwcorp\Departments\Pathology\Users\tcornish\automation\scheduler\scripts\heartbeat.py
   enabled: true
   schedule:
     unit: seconds
     every: 20
-
 - name: backup_db
   schedule:
     every: 1
     unit: days
     at: 02:00
   command: python scripts/backup.py
-
 - name: check_disk_space
   command: python scripts/check_disk.py
   enabled: true
   schedule:
     unit: minutes
     every: 1
-
 - name: send_daily_report
   schedule:
     every: 1
     unit: days
     at: 08:30
   command: python scripts/report.py
-
 - name: heartbeat
   command: python scripts/heartbeat.py
   enabled: true
@@ -34,7 +30,6 @@ jobs:
     unit: hours
     every: 1
     at: :15
-
 - name: update_software
   command: python scripts/update.py
   enabled: true
@@ -43,7 +38,6 @@ jobs:
     every: 1
     at: 04:00
     day: monday
-
 - name: hourly_sync_offset
   command: python scripts/heartbeat.py
   enabled: true
@@ -51,7 +45,6 @@ jobs:
     unit: hours
     every: 1
     at: :30
-
 - name: every_30_min_offset
   command: python scripts/check_disk.py
   enabled: true
@@ -59,7 +52,6 @@ jobs:
     unit: minutes
     every: 30
     at: :05
-
 - name: monday_morning_report
   schedule:
     every: 1
@@ -67,7 +59,6 @@ jobs:
     day: monday
     at: 09:00
   command: python scripts/report.py
-
 - name: friday_backup
   schedule:
     every: 1
@@ -75,20 +66,17 @@ jobs:
     day: friday
     at: '17:00'
   command: python scripts/backup.py
-
 - name: init_check
-  command: python ./scripts/heartbeat.py
+  command: python scripts/heartbeat.py
   enabled: true
   schedule:
     unit: startup
-
 - name: monthly_report
   schedule:
     unit: months
     day_of_month: 1
     at: 09:00
   command: python scripts/report.py
-
 - name: mid_month_backup
   schedule:
     unit: months
@@ -96,7 +84,6 @@ jobs:
     at: 02:00
   command: python scripts/backup.py
   enabled: false
-
 - name: bob
   command: bob.bob
   enabled: false
@@ -104,14 +91,12 @@ jobs:
     unit: months
     at: '23:00'
     day_of_month: 1
-
 - name: fred
   command: this is a commande that should be quitre long for tooltip
   enabled: false
   schedule:
     unit: minutes
     every: 1
-    
 - name: dir listing
   command: dir .
   enabled: true
