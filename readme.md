@@ -180,6 +180,14 @@ jobs:
       day_of_month: 1
       at: "09:00"
 
+  - name: "quarterly_maintenance"
+    command: "python scripts/maintenance.py"
+    schedule:
+      unit: "months"
+      day_of_month: 1
+      at: "03:00"
+      months: [1, 4, 7, 10]
+
   - name: "init_check"
     command: "python scripts/heartbeat.py"
     schedule:
@@ -199,15 +207,15 @@ jobs:
 
 ### Schedule Types
 
-| Unit | every | at | day | day_of_month |
-| --- | --- | --- | --- | --- |
-| seconds | required | - | - | - |
-| minutes | required | :SS offset | - | - |
-| hours | required | :MM offset | - | - |
-| days | required | HH:MM | - | - |
-| weeks | required | HH:MM | day name | - |
-| months | - | HH:MM | - | 1-31 |
-| startup | - | - | - | - |
+| Unit | every | at | day | day_of_month | months |
+| --- | --- | --- | --- | --- | --- |
+| seconds | required | - | - | - | - |
+| minutes | required | :SS offset | - | - | - |
+| hours | required | :MM offset | - | - | - |
+| days | required | HH:MM | - | - | - |
+| weeks | required | HH:MM | day name | - | - |
+| months | - | HH:MM | - | 1-31 | list of 1-12 |
+| startup | - | - | - | - | - |
 
 ### Time Offsets
 
@@ -223,6 +231,20 @@ Jobs with `unit: "startup"` run once immediately when the scheduler starts. Usef
 ### Monthly Jobs
 
 Jobs with `unit: "months"` run on a specific day of the month. The scheduler checks daily and only executes if today matches `day_of_month`.
+
+Optionally, use `months` to restrict a monthly job to specific months (e.g., quarterly):
+
+```yaml
+  - name: "quarterly_report"
+    command: "python scripts/report.py"
+    schedule:
+      unit: "months"
+      day_of_month: 1
+      at: "03:00"
+      months: [1, 4, 7, 10]  # Jan, Apr, Jul, Oct
+```
+
+When `months` is omitted, the job runs every month.
 
 ## Path Handling
 
