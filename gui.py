@@ -226,8 +226,8 @@ class JobEditorDialog:
         self.name_warn.grid(row=row, column=0, sticky="e", padx=(2, 2))
         ttk.Label(main, text="Name:").grid(row=row, column=1, sticky="w", pady=3)
         self.name_var = tk.StringVar()
-        self.name_entry = ttk.Entry(main, textvariable=self.name_var, width=25)
-        self.name_entry.grid(row=row, column=2, sticky="w", pady=3)
+        self.name_entry = ttk.Entry(main, textvariable=self.name_var)
+        self.name_entry.grid(row=row, column=2, columnspan=2, sticky="ew", pady=3)
         # No hint for name
         self.name_var.trace_add("write", lambda *_: self._update_warnings())
         row += 1
@@ -237,7 +237,7 @@ class JobEditorDialog:
         self.command_warn.grid(row=row, column=0, sticky="ne", padx=(2, 2))
         ttk.Label(main, text="Command:").grid(row=row, column=1, sticky="nw", pady=3)
         command_frame = ttk.Frame(main)
-        command_frame.grid(row=row, column=2, sticky="nsew", pady=3)
+        command_frame.grid(row=row, column=2, columnspan=2, sticky="nsew", pady=3)
         command_frame.grid_rowconfigure(0, weight=1)
         command_frame.grid_columnconfigure(0, weight=1)
         self.command_text = tk.Text(command_frame, width=30, height=8, wrap="word")
