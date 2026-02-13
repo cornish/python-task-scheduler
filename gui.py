@@ -193,9 +193,7 @@ class JobEditorDialog:
         
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Edit Job" if job else "New Job")
-        self.dialog.geometry("480x520")
-        self.dialog.minsize(480, 460)
-        self.dialog.resizable(True, True)
+        self.dialog.resizable(True, False)
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -214,13 +212,11 @@ class JobEditorDialog:
         """Create dialog widgets."""
         main = ttk.Frame(self.dialog, padding=(0, 15, 15, 15))
         main.grid(row=0, column=0, sticky="nsew")
-        self.dialog.grid_rowconfigure(0, weight=1)
         self.dialog.grid_columnconfigure(0, weight=1)
-        main.grid_columnconfigure(2, weight=1)
         main.grid_columnconfigure(0, minsize=18, weight=0)  # warning col: just enough for exclamation
         main.grid_columnconfigure(1, weight=0)
-        main.grid_columnconfigure(2, weight=1)
-        main.grid_columnconfigure(3, weight=0)
+        main.grid_columnconfigure(2, weight=0)
+        main.grid_columnconfigure(3, weight=1)
 
         # Column layout: 0=warn, 1=label, 2=input, 3=hint
         row = 0
@@ -287,7 +283,7 @@ class JobEditorDialog:
         self.every_entry = ttk.Entry(main, textvariable=self.every_var, width=8)
         self.every_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.every_hint = ttk.Label(main, text="(interval)")
-        self.every_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
+        self.every_hint.grid(row=row, column=3, sticky="w", padx=(5, 0))
         self.every_var.trace_add("write", lambda *_: self._update_warnings())
         row += 1
 
@@ -299,7 +295,7 @@ class JobEditorDialog:
         self.at_entry = ttk.Entry(main, textvariable=self.at_var, width=8)
         self.at_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.at_hint = ttk.Label(main, text="(time/offset)")
-        self.at_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
+        self.at_hint.grid(row=row, column=3, sticky="w", padx=(5, 0))
         self.at_var.trace_add("write", lambda *_: self._update_warnings())
         row += 1
 
@@ -311,7 +307,7 @@ class JobEditorDialog:
         self.day_combo = ttk.Combobox(main, textvariable=self.day_var, values=[""] + self.DAYS, state="readonly", width=12)
         self.day_combo.grid(row=row, column=2, sticky="w", pady=3)
         self.day_hint = ttk.Label(main, text="(for weekly)")
-        self.day_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
+        self.day_hint.grid(row=row, column=3, sticky="w", padx=(5, 0))
         self.day_combo.bind("<<ComboboxSelected>>", lambda e: self._update_warnings())
         row += 1
 
@@ -322,17 +318,17 @@ class JobEditorDialog:
         self.dom_entry = ttk.Entry(main, textvariable=self.dom_var, width=8)
         self.dom_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.dom_hint = ttk.Label(main, text="(1-31, default: 1)")
-        self.dom_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
+        self.dom_hint.grid(row=row, column=3, sticky="w", padx=(5, 0))
         row += 1
 
         # Months (for monthly — restrict to specific months)
         ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
         ttk.Label(main, text="Months:").grid(row=row, column=1, sticky="w", pady=3)
         self.months_var = tk.StringVar()
-        self.months_entry = ttk.Entry(main, textvariable=self.months_var, width=16)
+        self.months_entry = ttk.Entry(main, textvariable=self.months_var, width=12)
         self.months_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.months_hint = ttk.Label(main, text="(e.g. 1,4,7,10 — empty=all)")
-        self.months_hint.grid(row=row, column=2, sticky="w", padx=(170, 0))
+        self.months_hint.grid(row=row, column=3, sticky="w", padx=(5, 0))
         row += 1
 
         # Buttons
