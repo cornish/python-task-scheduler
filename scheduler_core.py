@@ -98,6 +98,9 @@ def update_job_enabled(job_name, enabled, config_path=None):
     return False
 
 
+MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
 def format_schedule(job):
     """Format a job's schedule as human-readable string."""
     sched = job.get("schedule", {})
@@ -106,13 +109,17 @@ def format_schedule(job):
     at = sched.get("at", "")
     day = sched.get("day", "")
     day_of_month = sched.get("day_of_month", "")
-    
+    months = sched.get("months")
+
     if unit == "startup":
         return "On startup"
     elif unit == "months":
         s = f"Monthly day {day_of_month}"
         if at:
             s += f" at {at}"
+        if months:
+            month_names = ",".join(MONTH_ABBR[m - 1] for m in sorted(months))
+            s += f" ({month_names})"
         return s
     elif unit == "weeks" and day:
         s = f"Every {every} week(s) on {day}"

@@ -106,15 +106,18 @@ def run_threaded(job_func, *args):
     logger.debug(f"Started thread {job_thread.name} for job execution")
 
 
-def run_monthly_job(command, job_name, target_day):
-    """Wrapper for monthly jobs - only runs on the specified day of month."""
+def run_monthly_job(command, job_name, target_day, target_months=None):
+    """Wrapper for monthly jobs - only runs on the specified day of month and optionally specific months."""
     import datetime
-    today = datetime.datetime.now().day
-    if today == target_day:
+    now = datetime.datetime.now()
+    if target_months and now.month not in target_months:
+        logger.debug(f"Monthly job '{job_name}' skipped (month={now.month}, targets={target_months})")
+        return
+    if now.day == target_day:
         logger.info(f"Monthly job '{job_name}' triggered (day {target_day})")
         run_threaded(run_command_logged, command, job_name)
     else:
-        logger.debug(f"Monthly job '{job_name}' skipped (today={today}, target={target_day})")
+        logger.debug(f"Monthly job '{job_name}' skipped (today={now.day}, target={target_day})")
 
 
 def schedule_job(job):
@@ -140,15 +143,19 @@ def schedule_job(job):
             if not day_of_month:
                 logger.warning(f"Monthly job '{job_name}' missing day_of_month, defaulting to 1st")
                 day_of_month = 1
-            
+
+            target_months = job["schedule"].get("months")
+
             sched = schedule.every().day
             if at:
                 sched = sched.at(at)
-                logger.info(f"Scheduled job '{job_name}': monthly on day {day_of_month} at {at}")
+                logger.info(f"Scheduled job '{job_name}': monthly on day {day_of_month} at {at}" +
+                           (f" (months={target_months})" if target_months else ""))
             else:
-                logger.info(f"Scheduled job '{job_name}': monthly on day {day_of_month}")
-            
-            sched.do(run_monthly_job, job["command"], job_name, day_of_month)
+                logger.info(f"Scheduled job '{job_name}': monthly on day {day_of_month}" +
+                           (f" (months={target_months})" if target_months else ""))
+
+            sched.do(run_monthly_job, job["command"], job_name, day_of_month, target_months)
             return None
         
         every = schedule.every(every_val)

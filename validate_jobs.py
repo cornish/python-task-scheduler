@@ -41,6 +41,11 @@ JOB_SCHEMA = {
                             "min": 1,
                             "max": 31,
                             "required": False
+                        },
+                        "months": {
+                            "type": "list",
+                            "schema": {"type": "integer", "min": 1, "max": 12},
+                            "required": False
                         }
                     },
                     "required": True
@@ -57,7 +62,7 @@ VALID_FIELDS_BY_UNIT = {
     "hours": {"every", "unit", "at"},
     "days": {"every", "unit", "at"},
     "weeks": {"every", "unit", "at", "day"},
-    "months": {"unit", "at", "day_of_month"},
+    "months": {"unit", "at", "day_of_month", "months"},
     "startup": {"unit"},
 }
 

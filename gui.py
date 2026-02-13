@@ -38,7 +38,7 @@ VALID_FIELDS_BY_UNIT = {
     "hours": {"every", "unit", "at"},
     "days": {"every", "unit", "at"},
     "weeks": {"every", "unit", "at", "day"},
-    "months": {"unit", "at", "day_of_month"},
+    "months": {"unit", "at", "day_of_month", "months"},
     "startup": {"unit"},
 }
 
@@ -134,7 +134,15 @@ def validate_job(job):
         dom = schedule["day_of_month"]
         if not isinstance(dom, int) or not 1 <= dom <= 31:
             errors.append("'day_of_month' must be an integer 1-31")
-    
+
+    # Validate 'months' for monthly
+    if "months" in schedule:
+        months = schedule["months"]
+        if not isinstance(months, list) or not months:
+            errors.append("'months' must be a non-empty list of integers 1-12")
+        elif not all(isinstance(m, int) and 1 <= m <= 12 for m in months):
+            errors.append("'months' values must be integers 1-12")
+
     return errors
 
 
@@ -185,8 +193,9 @@ class JobEditorDialog:
         
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Edit Job" if job else "New Job")
-        self.dialog.geometry("480x380")
-        self.dialog.resizable(False, False)
+        self.dialog.geometry("480x520")
+        self.dialog.minsize(480, 460)
+        self.dialog.resizable(True, True)
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -203,108 +212,145 @@ class JobEditorDialog:
     
     def _create_widgets(self):
         """Create dialog widgets."""
-        main = ttk.Frame(self.dialog, padding="15")
-        main.pack(fill="both", expand=True)
-        
-        # Column layout: 0=label, 1=input, 2=warning (fixed width), 3=hint
+        main = ttk.Frame(self.dialog, padding=(0, 15, 15, 15))
+        main.grid(row=0, column=0, sticky="nsew")
+        self.dialog.grid_rowconfigure(0, weight=1)
+        self.dialog.grid_columnconfigure(0, weight=1)
+        main.grid_columnconfigure(2, weight=1)
+        main.grid_columnconfigure(0, minsize=18, weight=0)  # warning col: just enough for exclamation
+        main.grid_columnconfigure(1, weight=0)
+        main.grid_columnconfigure(2, weight=1)
+        main.grid_columnconfigure(3, weight=0)
+
+        # Column layout: 0=warn, 1=label, 2=input, 3=hint
         row = 0
-        
+
         # Name
-        ttk.Label(main, text="Name:").grid(row=row, column=0, sticky="w", pady=3)
+        self.name_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
+        self.name_warn.grid(row=row, column=0, sticky="e", padx=(2, 2))
+        ttk.Label(main, text="Name:").grid(row=row, column=1, sticky="w", pady=3)
         self.name_var = tk.StringVar()
         self.name_entry = ttk.Entry(main, textvariable=self.name_var, width=25)
-        self.name_entry.grid(row=row, column=1, sticky="w", pady=3)
-        self.name_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
-        self.name_warn.grid(row=row, column=2, sticky="w", padx=(4, 0))
+        self.name_entry.grid(row=row, column=2, sticky="w", pady=3)
+        # No hint for name
         self.name_var.trace_add("write", lambda *_: self._update_warnings())
         row += 1
-        
-        # Command
-        ttk.Label(main, text="Command:").grid(row=row, column=0, sticky="w", pady=3)
-        self.command_var = tk.StringVar()
-        ttk.Entry(main, textvariable=self.command_var, width=25).grid(row=row, column=1, sticky="w", pady=3)
+
+        # Command (multi-line)
         self.command_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
-        self.command_warn.grid(row=row, column=2, sticky="w", padx=(4, 0))
-        self.command_var.trace_add("write", lambda *_: self._update_warnings())
+        self.command_warn.grid(row=row, column=0, sticky="ne", padx=(2, 2))
+        ttk.Label(main, text="Command:").grid(row=row, column=1, sticky="nw", pady=3)
+        command_frame = ttk.Frame(main)
+        command_frame.grid(row=row, column=2, sticky="nsew", pady=3)
+        command_frame.grid_rowconfigure(0, weight=1)
+        command_frame.grid_columnconfigure(0, weight=1)
+        self.command_text = tk.Text(command_frame, width=30, height=8, wrap="word")
+        self.command_text.grid(row=0, column=0, sticky="nsew")
+        command_scroll = ttk.Scrollbar(command_frame, orient="vertical", command=self.command_text.yview)
+        command_scroll.grid(row=0, column=1, sticky="ns")
+        self.command_text.configure(yscrollcommand=command_scroll.set)
+        # No hint for command
+        self.command_text.bind("<KeyRelease>", lambda e: self._update_warnings())
         row += 1
-        
+
         # Enabled
+        # No warning for enabled
         self.enabled_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(main, text="Enabled", variable=self.enabled_var).grid(row=row, column=1, sticky="w", pady=3)
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Checkbutton(main, text="Enabled", variable=self.enabled_var).grid(row=row, column=2, sticky="w", pady=3)
         row += 1
-        
+
         # Separator
-        ttk.Separator(main, orient="horizontal").grid(row=row, column=0, columnspan=4, sticky="ew", pady=10)
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Separator(main, orient="horizontal").grid(row=row, column=1, columnspan=3, sticky="ew", pady=10)
         row += 1
-        
+
         # Schedule section
-        ttk.Label(main, text="Schedule", font=('TkDefaultFont', 9, 'bold')).grid(row=row, column=0, columnspan=4, sticky="w")
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Label(main, text="Schedule", font=('TkDefaultFont', 9, 'bold')).grid(row=row, column=1, columnspan=3, sticky="w")
         row += 1
-        
+
         # Unit
-        ttk.Label(main, text="Unit:").grid(row=row, column=0, sticky="w", pady=3)
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Label(main, text="Unit:").grid(row=row, column=1, sticky="w", pady=3)
         self.unit_var = tk.StringVar(value="minutes")
         self.unit_combo = ttk.Combobox(main, textvariable=self.unit_var, values=self.UNITS, state="readonly", width=12)
-        self.unit_combo.grid(row=row, column=1, sticky="w", pady=3)
+        self.unit_combo.grid(row=row, column=2, sticky="w", pady=3)
         self.unit_combo.bind("<<ComboboxSelected>>", self._on_unit_change)
         row += 1
-        
+
         # Every (interval)
-        ttk.Label(main, text="Every:").grid(row=row, column=0, sticky="w", pady=3)
+        self.every_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
+        self.every_warn.grid(row=row, column=0, sticky="e", padx=(2, 2))
+        ttk.Label(main, text="Every:").grid(row=row, column=1, sticky="w", pady=3)
         self.every_var = tk.StringVar(value="1")
         self.every_entry = ttk.Entry(main, textvariable=self.every_var, width=8)
-        self.every_entry.grid(row=row, column=1, sticky="w", pady=3)
-        self.every_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
-        self.every_warn.grid(row=row, column=2, sticky="w", padx=(4, 0))
+        self.every_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.every_hint = ttk.Label(main, text="(interval)")
-        self.every_hint.grid(row=row, column=3, sticky="w", padx=(4, 0))
+        self.every_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
         self.every_var.trace_add("write", lambda *_: self._update_warnings())
         row += 1
-        
+
         # At (time)
-        ttk.Label(main, text="At:").grid(row=row, column=0, sticky="w", pady=3)
+        self.at_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
+        self.at_warn.grid(row=row, column=0, sticky="e", padx=(2, 2))
+        ttk.Label(main, text="At:").grid(row=row, column=1, sticky="w", pady=3)
         self.at_var = tk.StringVar()
         self.at_entry = ttk.Entry(main, textvariable=self.at_var, width=8)
-        self.at_entry.grid(row=row, column=1, sticky="w", pady=3)
-        self.at_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
-        self.at_warn.grid(row=row, column=2, sticky="w", padx=(4, 0))
+        self.at_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.at_hint = ttk.Label(main, text="(time/offset)")
-        self.at_hint.grid(row=row, column=3, sticky="w", padx=(4, 0))
+        self.at_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
         self.at_var.trace_add("write", lambda *_: self._update_warnings())
         row += 1
-        
+
         # Day (for weekly)
-        ttk.Label(main, text="Day:").grid(row=row, column=0, sticky="w", pady=3)
+        self.day_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
+        self.day_warn.grid(row=row, column=0, sticky="e", padx=(2, 2))
+        ttk.Label(main, text="Day:").grid(row=row, column=1, sticky="w", pady=3)
         self.day_var = tk.StringVar()
         self.day_combo = ttk.Combobox(main, textvariable=self.day_var, values=[""] + self.DAYS, state="readonly", width=12)
-        self.day_combo.grid(row=row, column=1, sticky="w", pady=3)
-        self.day_warn = tk.Label(main, text="❗", fg="red", font=('TkDefaultFont', 10), width=2)
-        self.day_warn.grid(row=row, column=2, sticky="w", padx=(4, 0))
+        self.day_combo.grid(row=row, column=2, sticky="w", pady=3)
         self.day_hint = ttk.Label(main, text="(for weekly)")
-        self.day_hint.grid(row=row, column=3, sticky="w", padx=(4, 0))
+        self.day_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
         self.day_combo.bind("<<ComboboxSelected>>", lambda e: self._update_warnings())
         row += 1
-        
+
         # Day of month (for monthly)
-        ttk.Label(main, text="Day of Month:").grid(row=row, column=0, sticky="w", pady=3)
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Label(main, text="Day of Month:").grid(row=row, column=1, sticky="w", pady=3)
         self.dom_var = tk.StringVar()
         self.dom_entry = ttk.Entry(main, textvariable=self.dom_var, width=8)
-        self.dom_entry.grid(row=row, column=1, sticky="w", pady=3)
-        # Placeholder label to maintain column width
-        tk.Label(main, text="", width=2).grid(row=row, column=2, sticky="w", padx=(4, 0))
+        self.dom_entry.grid(row=row, column=2, sticky="w", pady=3)
         self.dom_hint = ttk.Label(main, text="(1-31, default: 1)")
-        self.dom_hint.grid(row=row, column=3, sticky="w", padx=(4, 0))
+        self.dom_hint.grid(row=row, column=2, sticky="w", padx=(90, 0))
         row += 1
-        
+
+        # Months (for monthly — restrict to specific months)
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Label(main, text="Months:").grid(row=row, column=1, sticky="w", pady=3)
+        self.months_var = tk.StringVar()
+        self.months_entry = ttk.Entry(main, textvariable=self.months_var, width=16)
+        self.months_entry.grid(row=row, column=2, sticky="w", pady=3)
+        self.months_hint = ttk.Label(main, text="(e.g. 1,4,7,10 — empty=all)")
+        self.months_hint.grid(row=row, column=2, sticky="w", padx=(170, 0))
+        row += 1
+
         # Buttons
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=row, column=0, columnspan=4, pady=(20, 0))
-        
-        ttk.Button(btn_frame, text="Save", command=self._save).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="Cancel", command=self.dialog.destroy).pack(side="left", padx=5)
-        
+        btn_frame.grid(row=row, column=0, columnspan=4, pady=(20, 10))
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=0)
+        btn_frame.grid_columnconfigure(2, weight=0)
+        btn_frame.grid_columnconfigure(3, weight=1)
+        save_btn = ttk.Button(btn_frame, text="Save", command=self._save)
+        save_btn.grid(row=0, column=1, padx=5)
+        cancel_btn = ttk.Button(btn_frame, text="Cancel", command=self.dialog.destroy)
+        cancel_btn.grid(row=0, column=2, padx=5)
+
         # Initial state update
         self._on_unit_change()
+        
+        # (Removed duplicate controls and layout)
     
     def _on_unit_change(self, event=None):
         """Update field states based on selected unit."""
@@ -316,64 +362,78 @@ class JobEditorDialog:
             self.at_entry.configure(state="disabled")
             self.day_combo.configure(state="disabled")
             self.dom_entry.configure(state="disabled")
+            self.months_entry.configure(state="disabled")
             self.every_hint.configure(text="")
             self.at_hint.configure(text="")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="")
+            self.months_hint.configure(text="")
         elif unit == "months":
             self.every_entry.configure(state="disabled")
             self.at_entry.configure(state="normal")
             self.day_combo.configure(state="disabled")
             self.dom_entry.configure(state="normal")
+            self.months_entry.configure(state="normal")
             self.every_hint.configure(text="")
             self.at_hint.configure(text="(HH:MM)")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="(1-31, or last day if >)")
+            self.months_hint.configure(text="(e.g. 1,4,7,10 — empty=all)")
         elif unit == "weeks":
             self.every_entry.configure(state="normal")
             self.at_entry.configure(state="normal")
             self.day_combo.configure(state="readonly")
             self.dom_entry.configure(state="disabled")
+            self.months_entry.configure(state="disabled")
             self.every_hint.configure(text="(interval)")
             self.at_hint.configure(text="(HH:MM)")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="")
+            self.months_hint.configure(text="")
         elif unit == "days":
             self.every_entry.configure(state="normal")
             self.at_entry.configure(state="normal")
             self.day_combo.configure(state="disabled")
             self.dom_entry.configure(state="disabled")
+            self.months_entry.configure(state="disabled")
             self.every_hint.configure(text="(interval)")
             self.at_hint.configure(text="(HH:MM)")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="")
+            self.months_hint.configure(text="")
         elif unit == "hours":
             self.every_entry.configure(state="normal")
             self.at_entry.configure(state="normal")
             self.day_combo.configure(state="disabled")
             self.dom_entry.configure(state="disabled")
+            self.months_entry.configure(state="disabled")
             self.every_hint.configure(text="(interval)")
             self.at_hint.configure(text="(:MM offset, optional)")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="")
+            self.months_hint.configure(text="")
         elif unit == "minutes":
             self.every_entry.configure(state="normal")
             self.at_entry.configure(state="normal")
             self.day_combo.configure(state="disabled")
             self.dom_entry.configure(state="disabled")
+            self.months_entry.configure(state="disabled")
             self.every_hint.configure(text="(interval)")
             self.at_hint.configure(text="(:SS offset, optional)")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="")
+            self.months_hint.configure(text="")
         elif unit == "seconds":
             self.every_entry.configure(state="normal")
             self.at_entry.configure(state="disabled")
             self.day_combo.configure(state="disabled")
             self.dom_entry.configure(state="disabled")
+            self.months_entry.configure(state="disabled")
             self.every_hint.configure(text="(interval)")
             self.at_hint.configure(text="")
             self.day_hint.configure(text="")
             self.dom_hint.configure(text="")
+            self.months_hint.configure(text="")
         
         # Update warning indicators
         self._update_warnings()
@@ -381,28 +441,29 @@ class JobEditorDialog:
     def _update_warnings(self):
         """Show/hide warning indicators for empty required fields."""
         unit = self.unit_var.get()
-        
+
         # Define which fields are required for each unit
         requires_every = unit in ("seconds", "minutes", "hours", "days", "weeks")
         requires_at = unit in ("days", "weeks", "months")
         requires_day = unit == "weeks"
-        
+
         # Name and Command are always required (show/hide by changing text)
         self.name_warn.configure(text="" if self.name_var.get().strip() else "❗")
-        self.command_warn.configure(text="" if self.command_var.get().strip() else "❗")
-        
+        command_val = self.command_text.get("1.0", tk.END).strip()
+        self.command_warn.configure(text="" if command_val else "❗")
+
         # Every - required for most interval-based schedules
         if requires_every and not self.every_var.get().strip():
             self.every_warn.configure(text="❗")
         else:
             self.every_warn.configure(text="")
-        
+
         # At - required for daily, weekly, monthly
         if requires_at and not self.at_var.get().strip():
             self.at_warn.configure(text="❗")
         else:
             self.at_warn.configure(text="")
-        
+
         # Day - required for weekly
         if requires_day and not self.day_var.get().strip():
             self.day_warn.configure(text="❗")
@@ -413,26 +474,29 @@ class JobEditorDialog:
         """Populate fields from existing job."""
         if not self.job:
             return
-        
+
         self.name_var.set(self.job.get("name", ""))
-        self.command_var.set(self.job.get("command", ""))
+        self.command_text.delete("1.0", tk.END)
+        self.command_text.insert("1.0", self.job.get("command", ""))
         self.enabled_var.set(self.job.get("enabled", True))
-        
+
         sched = self.job.get("schedule", {})
         self.unit_var.set(sched.get("unit", "minutes"))
         self.every_var.set(str(sched.get("every", 1)))
         self.at_var.set(sched.get("at", ""))
         self.day_var.set(sched.get("day", ""))
         self.dom_var.set(str(sched.get("day_of_month", "")) if sched.get("day_of_month") else "")
-        
+        months = sched.get("months")
+        self.months_var.set(",".join(str(m) for m in months) if months else "")
+
         self._on_unit_change()
     
     def _save(self):
         """Validate and save job."""
         name = self.name_var.get().strip()
-        command = self.command_var.get().strip()
+        command = self.command_text.get("1.0", tk.END).strip()
         unit = self.unit_var.get()
-        
+
         # Build job dict first
         job = {
             "name": name,
@@ -442,7 +506,7 @@ class JobEditorDialog:
                 "unit": unit
             }
         }
-        
+
         # Add schedule fields based on unit (only add non-empty values)
         if unit not in ("startup", "months"):
             every_str = self.every_var.get().strip()
@@ -468,6 +532,16 @@ class JobEditorDialog:
                     job["schedule"]["day_of_month"] = int(dom_str)
                 except ValueError:
                     pass  # Will be caught by validation
+
+            months_str = self.months_var.get().strip()
+            if months_str:
+                try:
+                    job["schedule"]["months"] = [int(m.strip()) for m in months_str.split(",")]
+                except ValueError:
+                    errors = validate_job(job)
+                    errors.append("'months' must be comma-separated integers (e.g. 1,4,7,10)")
+                    messagebox.showerror("Validation Error", "\n".join(errors), parent=self.dialog)
+                    return
         
         # Validate the job
         errors = validate_job(job)
@@ -480,24 +554,63 @@ class JobEditorDialog:
 
 
 class SchedulerGUI:
+    def _duplicate_job(self):
+        """Duplicate the selected job."""
+        job_name = self._get_selected_job_name()
+        if not job_name:
+            return
+        try:
+            jobs, _ = load_jobs_raw()
+            job_to_copy = None
+            for job in jobs:
+                if job.get("name") == job_name:
+                    job_to_copy = job.copy()
+                    break
+            if not job_to_copy:
+                messagebox.showerror("Error", f"Job '{job_name}' not found")
+                return
+            # Generate a unique name for the duplicate
+            base_name = job_to_copy.get("name", "")
+            new_name = f"{base_name} (Copy)"
+            existing_names = {j.get("name") for j in jobs}
+            count = 2
+            while new_name in existing_names:
+                new_name = f"{base_name} (Copy {count})"
+                count += 1
+            job_to_copy["name"] = new_name
+            # Open the job editor dialog for the duplicate
+            dialog = JobEditorDialog(self.root, job_to_copy)
+            if dialog.result:
+                # Check for duplicate name again (user may have changed it)
+                for job in jobs:
+                    if job.get("name") == dialog.result["name"]:
+                        messagebox.showerror("Error", f"Job '{dialog.result['name']}' already exists")
+                        return
+                jobs.append(dialog.result)
+                save_jobs(jobs)
+                self._load_jobs()
+                messagebox.showinfo("Duplicated", f"Job '{dialog.result['name']}' created.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to duplicate job: {e}")
+
     """Main GUI application class."""
-    
+
     def __init__(self, root):
         self.root = root
         self.root.title("Job Scheduler")
         self.root.geometry("800x600")
         self.root.minsize(600, 400)
-        
+
         # Track running state
         self.log_update_running = False
-        
+
         # Track invalid jobs
         self.invalid_jobs = {}  # name -> list of errors
         self.has_enabled_invalid = False  # True if any enabled job is invalid
-        
+
         self._create_widgets()
         self._refresh_all()
-        
+
         # Start log auto-refresh
         self._start_log_refresh()
         
@@ -579,15 +692,17 @@ class SchedulerGUI:
         ttk.Button(job_btn_frame, text="Add", command=self._add_job).grid(row=0, column=0, padx=2)
         self.edit_btn = ttk.Button(job_btn_frame, text="Edit", command=self._edit_job, state="disabled")
         self.edit_btn.grid(row=0, column=1, padx=2)
+        self.duplicate_btn = ttk.Button(job_btn_frame, text="Duplicate", command=self._duplicate_job, state="disabled")
+        self.duplicate_btn.grid(row=0, column=2, padx=2)
         self.delete_btn = ttk.Button(job_btn_frame, text="Delete", command=self._delete_job, state="disabled")
-        self.delete_btn.grid(row=0, column=2, padx=2)
-        ttk.Separator(job_btn_frame, orient="vertical").grid(row=0, column=3, sticky="ns", padx=8)
+        self.delete_btn.grid(row=0, column=3, padx=2)
+        ttk.Separator(job_btn_frame, orient="vertical").grid(row=0, column=4, sticky="ns", padx=8)
         self.run_btn = ttk.Button(job_btn_frame, text="Run Now", command=self._run_job, state="disabled")
-        self.run_btn.grid(row=0, column=4, padx=2)
+        self.run_btn.grid(row=0, column=5, padx=2)
         self.enable_btn = ttk.Button(job_btn_frame, text="Enable", command=lambda: self._toggle_enabled(True), state="disabled")
-        self.enable_btn.grid(row=0, column=5, padx=2)
+        self.enable_btn.grid(row=0, column=6, padx=2)
         self.disable_btn = ttk.Button(job_btn_frame, text="Disable", command=lambda: self._toggle_enabled(False), state="disabled")
-        self.disable_btn.grid(row=0, column=6, padx=2)
+        self.disable_btn.grid(row=0, column=7, padx=2)
         
         # Double-click to edit
         self.job_tree.bind("<Double-1>", lambda e: self._edit_job())
@@ -757,6 +872,7 @@ class SchedulerGUI:
         has_selection = bool(self.job_tree.selection())
         state = "normal" if has_selection else "disabled"
         self.edit_btn.configure(state=state)
+        self.duplicate_btn.configure(state=state)
         self.delete_btn.configure(state=state)
         self.run_btn.configure(state=state)
         self.enable_btn.configure(state=state)
