@@ -2,6 +2,7 @@ jobs:
 - name: harvester maintain run
   command: powershell -ExecutionPolicy Bypass -File "D:\Github\blue-harvest\maintenance.ps1"
   enabled: true
+  timeout: 43200
   schedule:
     unit: days
     every: 1
@@ -15,6 +16,7 @@ jobs:
 - name: harvester maintain monthly
   command: powershell -ExecutionPolicy Bypass -File "D:\Github\blue-harvest\maintenance-monthly.ps1"
   enabled: true
+  timeout: 43200
   schedule:
     unit: months
     at: 02:00
@@ -22,12 +24,47 @@ jobs:
 - name: harvester maintain quarterly
   command: powershell -ExecutionPolicy Bypass -File "D:\Github\blue-harvest\maintenance-quarterly.ps1"
   enabled: true
+  timeout: 43200
   schedule:
     unit: months
     at: 03:00
-    day_of_month: 1
+    day_of_month: 2
     months:
     - 1
     - 4
     - 7
     - 10
+- name: harvester download PMC inventory
+  command: powershell -ExecutionPolicy Bypass -File "D:\Github\blue-harvest\maintenance-inventory.ps1"
+  enabled: true
+  timeout: 7200
+  schedule:
+    unit: weeks
+    every: 1
+    at: '22:00'
+    day: friday
+- name: harvester maintain freshness
+  command: powershell -ExecutionPolicy Bypass -File "D:\Github\blue-harvest\maintenance-freshness.ps1"
+  enabled: true
+  timeout: 43200
+  schedule:
+    unit: weeks
+    every: 1
+    at: '21:00'
+    day: saturday
+- name: harvester maintain smoke-test
+  command: powershell -ExecutionPolicy Bypass -File "D:\Github\blue-harvest\maintenance-smoke-test.ps1"
+  enabled: true
+  schedule:
+    unit: weeks
+    every: 1
+    at: 07:00
+    day: monday
+- name: scholar watch scrape weekly
+  command: powershell.exe -ExecutionPolicy Bypass -File "D:\Github\scholar_watch\scripts\scheduled_scrape.ps1"
+  enabled: true
+  schedule:
+    unit: weeks
+    every: 1
+    at: 09:00
+    day: sunday

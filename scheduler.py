@@ -84,10 +84,11 @@ def remove_pid_file():
 atexit.register(remove_pid_file)
 
 
-def run_command_logged(command, job_name="unknown"):
+def run_command_logged(command, job_name="unknown", timeout=None):
     """Execute a command with logging (wrapper around core function)."""
-    logger.info(f"Starting job '{job_name}': {command}")
-    result = core_run_command(command, job_name, JOB_TIMEOUT)
+    effective_timeout = timeout or JOB_TIMEOUT
+    logger.info(f"Starting job '{job_name}' (timeout={effective_timeout}s): {command}")
+    result = core_run_command(command, job_name, effective_timeout)
     
     if result['success']:
         logger.info(f"Job '{job_name}' completed successfully")
@@ -106,7 +107,7 @@ def run_threaded(job_func, *args):
     logger.debug(f"Started thread {job_thread.name} for job execution")
 
 
-def run_monthly_job(command, job_name, target_day, target_months=None):
+def run_monthly_job(command, job_name, target_day, target_months=None, timeout=None):
     """Wrapper for monthly jobs - only runs on the specified day of month and optionally specific months."""
     import datetime
     now = datetime.datetime.now()
@@ -115,7 +116,7 @@ def run_monthly_job(command, job_name, target_day, target_months=None):
         return
     if now.day == target_day:
         logger.info(f"Monthly job '{job_name}' triggered (day {target_day})")
-        run_threaded(run_command_logged, command, job_name)
+        run_threaded(run_command_logged, command, job_name, timeout)
     else:
         logger.debug(f"Monthly job '{job_name}' skipped (today={now.day}, target={target_day})")
 
@@ -124,11 +125,12 @@ def schedule_job(job):
     """Schedule a single job based on its configuration."""
     try:
         job_name = job.get("name", "unknown")
-        
+        job_timeout = job.get("timeout")
+
         if not job.get("enabled", True):
             logger.info(f"Skipping disabled job '{job_name}'")
             return "disabled"
-        
+
         unit = job["schedule"]["unit"]
         at = job["schedule"].get("at")
         day = job["schedule"].get("day")
@@ -155,7 +157,7 @@ def schedule_job(job):
                 logger.info(f"Scheduled job '{job_name}': monthly on day {day_of_month}" +
                            (f" (months={target_months})" if target_months else ""))
 
-            sched.do(run_monthly_job, job["command"], job_name, day_of_month, target_months)
+            sched.do(run_monthly_job, job["command"], job_name, day_of_month, target_months, job_timeout)
             return None
         
         every = schedule.every(every_val)
@@ -180,7 +182,7 @@ def schedule_job(job):
         else:
             logger.info(f"Scheduled job '{job_name}': every {every_val} {unit}")
 
-        sched.do(run_threaded, run_command_logged, job["command"], job_name)
+        sched.do(run_threaded, run_command_logged, job["command"], job_name, job_timeout)
         return None
     except AttributeError as e:
         logger.error(f"Invalid schedule unit '{unit}' for job '{job_name}': {e}")
@@ -218,7 +220,7 @@ if __name__ == "__main__":
         
         for job in startup_jobs:
             logger.info(f"Running startup job: {job['name']}")
-            run_threaded(run_command_logged, job["command"], job["name"])
+            run_threaded(run_command_logged, job["command"], job["name"], job.get("timeout"))
         
         logger.info("Press Ctrl+C to stop the scheduler")
         

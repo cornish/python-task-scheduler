@@ -256,6 +256,23 @@ class JobEditorDialog:
         ttk.Checkbutton(main, text="Enabled", variable=self.enabled_var).grid(row=row, column=2, sticky="w", pady=3)
         row += 1
 
+        # Timeout
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        ttk.Label(main, text="Timeout:").grid(row=row, column=1, sticky="w", pady=3)
+        self.timeout_var = tk.StringVar()
+        self.timeout_entry = ttk.Entry(main, textvariable=self.timeout_var, width=8)
+        self.timeout_entry.grid(row=row, column=2, sticky="w", pady=3)
+        self.timeout_hint = ttk.Label(main, text="(seconds, empty=default)")
+        self.timeout_hint.grid(row=row, column=3, sticky="w", padx=(5, 0))
+        self.timeout_var.trace_add("write", lambda *_: self._update_timeout_display())
+        row += 1
+
+        # Timeout human-readable display
+        ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
+        self.timeout_display = ttk.Label(main, text="", foreground="#666666")
+        self.timeout_display.grid(row=row, column=2, columnspan=2, sticky="w", pady=(0, 3))
+        row += 1
+
         # Separator
         ttk.Label(main, text="").grid(row=row, column=0)  # empty warn col
         ttk.Separator(main, orient="horizontal").grid(row=row, column=1, columnspan=3, sticky="ew", pady=10)
@@ -434,6 +451,30 @@ class JobEditorDialog:
         # Update warning indicators
         self._update_warnings()
     
+    def _update_timeout_display(self):
+        """Update the human-readable timeout display."""
+        text = self.timeout_var.get().strip()
+        if not text:
+            self.timeout_display.configure(text="")
+            return
+        try:
+            secs = int(text)
+            if secs < 1:
+                self.timeout_display.configure(text="")
+                return
+            parts = []
+            if secs >= 3600:
+                parts.append(f"{secs // 3600}h")
+                secs %= 3600
+            if secs >= 60:
+                parts.append(f"{secs // 60}m")
+                secs %= 60
+            if secs > 0 or not parts:
+                parts.append(f"{secs}s")
+            self.timeout_display.configure(text=" ".join(parts))
+        except ValueError:
+            self.timeout_display.configure(text="")
+
     def _update_warnings(self):
         """Show/hide warning indicators for empty required fields."""
         unit = self.unit_var.get()
@@ -475,6 +516,8 @@ class JobEditorDialog:
         self.command_text.delete("1.0", tk.END)
         self.command_text.insert("1.0", self.job.get("command", ""))
         self.enabled_var.set(self.job.get("enabled", True))
+        timeout = self.job.get("timeout")
+        self.timeout_var.set(str(timeout) if timeout else "")
 
         sched = self.job.get("schedule", {})
         self.unit_var.set(sched.get("unit", "minutes"))
@@ -502,6 +545,15 @@ class JobEditorDialog:
                 "unit": unit
             }
         }
+
+        # Add timeout if specified
+        timeout_str = self.timeout_var.get().strip()
+        if timeout_str:
+            try:
+                job["timeout"] = int(timeout_str)
+            except ValueError:
+                messagebox.showerror("Validation Error", "Timeout must be a positive integer (seconds)", parent=self.dialog)
+                return
 
         # Add schedule fields based on unit (only add non-empty values)
         if unit not in ("startup", "months"):
@@ -951,10 +1003,11 @@ class SchedulerGUI:
                 return
             
             command = job.get("command", "")
-            
+            job_timeout = job.get("timeout")
+
             # Run in background thread
             def run():
-                result = run_command(command, job_name)
+                result = run_command(command, job_name, job_timeout)
                 # Update UI from main thread
                 self.root.after(0, lambda: self._show_run_result(job_name, result))
             

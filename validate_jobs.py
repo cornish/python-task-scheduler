@@ -17,6 +17,7 @@ JOB_SCHEMA = {
                 "name": {"type": "string", "required": True},
                 "command": {"type": "string", "required": True},
                 "enabled": {"type": "boolean", "required": False, "default": True},
+                "timeout": {"type": "integer", "min": 1, "required": False},
                 "schedule": {
                     "type": "dict",
                     "schema": {
